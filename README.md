@@ -53,12 +53,12 @@ npm test
 
 ### 1. Criar um Agendamento (Sucesso)
 ```bash
-curl -X POST http://localhost:3000/agendamentos \
+curl -X POST http://localhost:3000/api/agendamentos \
      -H "Content-Type: application/json" \
      -d '{
-       "corretorId": "corretor-01",
-       "imovelId": "imovel-123",
-       "inicio": "2026-05-30T10:00:00Z",
+      "corretorId": "c-101",
+       "imovelId": "im-553",
+       "inicio": "2026-05-30T10:00:00-03:00",
        "duracaoMinutos": 60
      }'
 ```
@@ -66,22 +66,23 @@ curl -X POST http://localhost:3000/agendamentos \
 **Resposta (201 Created):**
 ```json
 {
-  "id": "uuid-gerado",
-  "corretorId": "corretor-01",
-  "imovelId": "imovel-123",
-  "inicio": "2026-05-30T10:00:00Z",
-  "fim": "2026-05-30T11:00:00Z"
+  "agendamentoId": "ag-001",
+  "corretorId": "c-101",
+  "imovelId": "im-553",
+  "inicio": "2026-05-30T10:00:00-03:00",
+  "fim": "2026-05-30T11:00:00-03:00",
+  "status": "confirmado"
 }
 ```
 
 ### 2. Conflito de Horário (Erro 409)
 ```bash
-curl -X POST http://localhost:3000/agendamentos \
+curl -X POST http://localhost:3000/api/agendamentos \
      -H "Content-Type: application/json" \
      -d '{
-       "corretorId": "corretor-01",
-       "imovelId": "imovel-456",
-       "inicio": "2026-05-30T10:30:00Z",
+       "corretorId": "c-101",
+       "imovelId": "im-456",
+       "inicio": "2026-05-30T10:30:00-03:00",
        "duracaoMinutos": 30
      }'
 ```
@@ -89,11 +90,12 @@ curl -X POST http://localhost:3000/agendamentos \
 **Resposta (409 Conflict):**
 ```json
 {
-  "error": "Conflito de horário detectado",
-  "suggestions": [
-    "2026-05-30T11:00:00Z",
-    "2026-05-30T11:30:00Z",
-    "2026-05-30T09:30:00Z"
+  "status": "conflito",
+  "motivo": "Corretor indisponível no horário solicitado",
+  "sugestoes": [
+    "2026-05-30T08:00:00-03:00",
+    "2026-05-30T08:30:00-03:00",
+    "2026-05-30T09:00:00-03:00"
   ]
 }
 ```
@@ -143,9 +145,24 @@ curl -X POST http://localhost:3000/api/agendamentos \
 
 ### 5. Listar Agenda do Corretor
 ```bash
-curl -G http://localhost:3000/agendamentos \
+curl -G http://localhost:3000/api/agendamentos \
      --data-urlencode "corretorId=corretor-01" \
      --data-urlencode "data=2026-05-30"
 ```
+
+**Resposta (200 OK):**
+
+````JSON
+[
+  {
+    "agendamentoId": "ag-001",
+    "corretorId": "c-101",
+    "imovelId": "im-553",
+    "inicio": "2026-05-30T10:00:00-03:00",
+    "fim": "2026-05-30T11:00:00-03:00",
+    "status": "confirmado"
+  }
+]
+````
 
 ---
