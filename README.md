@@ -10,10 +10,14 @@ O projeto foi estruturado utilizando conceitos de **Clean Architecture** e princ
 * **Erros Customizados:** Classes herdadas de `Error` (`BusinessError` e `ConflictError`) para padronização de respostas HTTP e manutenção do *stack trace*.
 * **Utils:** O isolamento da matemática de fuso horário em JavaScript puro foi escolhido deliberadamente. Com o uso de `Date.UTC`, garantimos que a janela de atendimento (08h às 19h no fuso de Brasília) funcione perfeitamente em qualquer ambiente ou container, eliminando a necessidade de bibliotecas externas (como `moment` ou `date-fns`).
 
+---
+
 ## Persistência em Memória
 
 A persistência de dados foi implementada utilizando a estrutura nativa **`Map`** do JavaScript (`Map<string, Schedule[]>`). 
 A chave do mapa é o `corretorId` e o valor é um array de agendamentos daquele corretor. Essa escolha garante buscas de agenda com complexidade **O(1)**, proporcionando alta performance e consultas instantâneas, sem varreduras desnecessárias no histórico global.
+
+---
 
 ## Como Executar o Projeto
 
