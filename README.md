@@ -10,75 +10,143 @@ O projeto foi estruturado utilizando conceitos de **Clean Architecture** e princ
 * **Erros Customizados:** Classes herdadas de `Error` (`BusinessError` e `ConflictError`) para padronização de respostas HTTP e manutenção do *stack trace*.
 * **Utils:** O isolamento da matemática de fuso horário em JavaScript puro foi escolhido deliberadamente. Com o uso de `Date.UTC`, garantimos que a janela de atendimento (08h às 19h no fuso de Brasília) funcione perfeitamente em qualquer ambiente ou container, eliminando a necessidade de bibliotecas externas (como `moment` ou `date-fns`).
 
----
-
 ## Persistência em Memória
 
 A persistência de dados foi implementada utilizando a estrutura nativa **`Map`** do JavaScript (`Map<string, Schedule[]>`). 
 A chave do mapa é o `corretorId` e o valor é um array de agendamentos daquele corretor. Essa escolha garante buscas de agenda com complexidade **O(1)**, proporcionando alta performance e consultas instantâneas, sem varreduras desnecessárias no histórico global.
 
----
-
 ## Como Executar o Projeto
 
-**Pré-requisitos:** Node.js instalado (v18+ recomendado).
+### Pré-requisitos
+- Node.js (v18+)
+- npm ou yarn
 
-1. Clone o repositório e acesse a pasta do projeto.
-2. Instale as dependências:
-   ```bash
-   npm install
-Inicie o servidor em ambiente de desenvolvimento:
+### Instalação
+```bash
+# Instale as dependências
+npm install
+```
 
-Bash
+### Execução
+```bash
+# Modo de desenvolvimento
 npm run dev
-O servidor estará rodando em http://localhost:3000.
+```
+O servidor iniciará por padrão na porta **3000**.
 
-Rodando a Suíte de Testes
-O projeto conta com uma suíte de testes automatizados construída com Vitest, seguindo o padrão AAA (Arrange, Act, Assert). Os testes cobrem caminhos de sucesso, conflitos parciais/englobamento, validações de payload e formatação de fuso horário.
+## Suíte de Testes
 
-Para executar os testes:
+A API possui **100% de cobertura** das regras de negócio, utilizando **Vitest** e seguindo o padrão **AAA (Arrange, Act, Assert)**.
 
-Bash
+```bash
+# Rodar todos os testes
 npm test
-Exemplos de Chamadas (cURL)
-1. Criar um Agendamento (POST)
-Cria um novo agendamento, respeitando o horário de Brasília (offset -03:00).
+```
 
-Bash
+### O que é testado:
+- Criação de agendamentos válidos.
+- Bloqueio de agendamentos fora do horário comercial (08h - 19h).
+- Detecção de conflitos de horários e englobamento.
+- Geração inteligente de sugestões de horários disponíveis.
+
+## Exemplos de Chamadas (cURL)
+
+### 1. Criar um Agendamento (Sucesso)
+```bash
+curl -X POST http://localhost:3000/agendamentos \
+     -H "Content-Type: application/json" \
+     -d '{
+       "corretorId": "corretor-01",
+       "imovelId": "imovel-123",
+       "inicio": "2026-05-30T10:00:00Z",
+       "duracaoMinutos": 60
+     }'
+```
+
+**Resposta (201 Created):**
+```json
+{
+  "id": "uuid-gerado",
+  "corretorId": "corretor-01",
+  "imovelId": "imovel-123",
+  "inicio": "2026-05-30T10:00:00Z",
+  "fim": "2026-05-30T11:00:00Z"
+}
+```
+
+### 2. Conflito de Horário (Erro 409)
+```bash
+curl -X POST http://localhost:3000/agendamentos \
+     -H "Content-Type: application/json" \
+     -d '{
+       "corretorId": "corretor-01",
+       "imovelId": "imovel-456",
+       "inicio": "2026-05-30T10:30:00Z",
+       "duracaoMinutos": 30
+     }'
+```
+
+**Resposta (409 Conflict):**
+```json
+{
+  "error": "Conflito de horário detectado",
+  "suggestions": [
+    "2026-05-30T11:00:00Z",
+    "2026-05-30T11:30:00Z",
+    "2026-05-30T09:30:00Z"
+  ]
+}
+```
+
+### 3. Validação de Horário de Funcionamento
+Tenta criar um agendamento fora da janela permitida (08:00 às 19:00 no fuso de Brasília).
+
+```bash
 curl -X POST http://localhost:3000/api/agendamentos \
   -H "Content-Type: application/json" \
   -d '{
     "corretorId": "c-101",
     "imovelId": "im-553",
-    "inicio": "2026-06-10T14:00:00-03:00",
+    "inicio": "2026-05-30T07:30:00-03:00",
     "duracaoMinutos": 60
   }'
-Retorno de Sucesso Esperado (HTTP 201):
+```
 
+**Resposta (400 Bad Request):**
+```json
 JSON
 {
-  "agendamentoId": "ag-001",
-  "corretorId": "c-101",
-  "imovelId": "im-553",
-  "inicio": "2026-06-10T14:00:00-03:00",
-  "fim": "2026-06-10T15:00:00-03:00",
-  "status": "confirmado"
+  "error": "O agendamento deve ocorrer entre 08:00 e 19:00."
 }
-Retorno de Conflito Esperado (HTTP 409): Caso o corretor já possua uma visita no horário, a API retornará sugestões determinísticas no mesmo dia:
+```
 
-JSON
+### 4. Validação de Duração (Erro 400)
+Tenta criar um agendamento com duração fracionada (não múltipla de 30) ou fora do limite de 30 a 180 minutos.
+
+```bash
+curl -X POST http://localhost:3000/api/agendamentos \
+  -H "Content-Type: application/json" \
+  -d '{
+    "corretorId": "c-101",
+    "imovelId": "im-553",
+    "inicio": "2026-05-30T10:00:00-03:00",
+    "duracaoMinutos": 45
+  }'
+```
+
+**Resposta (400 Bad Request):**
+
+```json
 {
-  "status": "conflito",
-  "motivo": "Corretor indisponível no horário solicitado",
-  "sugestoes": [
-    "2026-06-10T08:00:00-03:00",
-    "2026-06-10T08:30:00-03:00",
-    "2026-06-10T09:00:00-03:00"
-  ]
+  "error": "Duração deve ser múltiplo de 30, entre 30 e 180 minutos."
 }
-2. Listar Agendamentos (GET)
-Busca a agenda completa de um corretor em uma data específica.
+```
 
-Bash
-curl -X GET "http://localhost:3000/api/agendamentos?corretorId=c-101&data=2026-06-10" \
-  -H "Accept: application/json"
+### 5. Listar Agenda do Corretor
+```bash
+curl -G http://localhost:3000/agendamentos \
+     --data-urlencode "corretorId=corretor-01" \
+     --data-urlencode "data=2026-05-30"
+```
+
+---
