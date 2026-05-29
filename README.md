@@ -114,7 +114,6 @@ curl -X POST http://localhost:3000/api/agendamentos \
 
 **Resposta (400 Bad Request):**
 ```json
-JSON
 {
   "error": "O agendamento deve ocorrer entre 08:00 e 19:00."
 }
