@@ -20,33 +20,27 @@ export class ScheduleService {
             throw new BusinessError('Duração deve ser múltiplo de 30, entre 30 e 180 minutos.');
 
         const endTime = new Date(input.startTime.getTime() + input.durationMinutes * 60000);
+        this.validateBusinessHours(input.startTime, endTime);
 
-        const brStartDate = getBrasiliaTime(input.startTime);
-        const brEndDate = getBrasiliaTime(endTime);
-
-        const startTotalMinutes = (brStartDate.getUTCHours() * 60) + brStartDate.getUTCMinutes();
-        const endTotalMinutes = (brEndDate.getUTCHours() * 60) + brEndDate.getUTCMinutes();
-
-        const openingMinutes = 8 * 60;   
-        const closingMinutos = 19 * 60; 
-
-        if (startTotalMinutes < openingMinutes || endTotalMinutes > closingMinutos)
-            throw new BusinessError('O agendamento deve ocorrer entre 08:00 e 19:00.');
-
-        const dateString = formatToYMD(brStartDate);
-
+        const dateString = formatToYMD(getBrasiliaTime(input.startTime));
         const dailySchedules = this.scheduleRepository.getSchedulesByBrokerAndDate(input.brokerId, dateString);
 
-        const hasConflict = dailySchedules.some(schedule => {
-            return input.startTime < schedule.endTime && endTime > schedule.startTime;
-        });
-
-        if (hasConflict) {
+        if (this.hasTimeConflict(input.startTime, endTime, dailySchedules)) {
             const suggestions = this.generateSuggestions(dailySchedules, input.startTime, input.durationMinutes);
-
             throw new ConflictError(suggestions);
         }
 
+        const newSchedule = this.buildScheduleObject(input, endTime);
+        this.scheduleRepository.save(newSchedule);
+
+        return newSchedule;
+    }
+
+    public listByBrokerAndDate(brokerId: string, date: string) {
+        return this.scheduleRepository.getSchedulesByBrokerAndDate(brokerId, date);
+    }
+
+    private buildScheduleObject(input: CreateScheduleInput, endTime: Date): Schedule {
         this.contador++;
         const newId = `ag-${String(this.contador).padStart(3, '0')}`;
 
@@ -59,13 +53,27 @@ export class ScheduleService {
             durationMinutes: input.durationMinutes
         };
 
-        this.scheduleRepository.save(newSchedule);
-
         return newSchedule;
     }
 
-    public listByBrokerAndDate(brokerId: string, date: string) {
-        return this.scheduleRepository.getSchedulesByBrokerAndDate(brokerId, date);
+    private hasTimeConflict(startTime: Date, endTime: Date, dailySchedules: Schedule[]): boolean {
+        return dailySchedules.some(schedule => {
+            return startTime < schedule.endTime && endTime > schedule.startTime;
+        });
+    }
+
+    private validateBusinessHours(startTime: Date, endTime: Date): void {
+        const brStartDate = getBrasiliaTime(startTime);
+        const brEndDate = getBrasiliaTime(endTime);
+
+        const startTotalMinutes = (brStartDate.getUTCHours() * 60) + brStartDate.getUTCMinutes();
+        const endTotalMinutes = (brEndDate.getUTCHours() * 60) + brEndDate.getUTCMinutes();
+
+        const openingMinutes = 8 * 60;
+        const closingMinutos = 19 * 60;
+
+        if (startTotalMinutes < openingMinutes || endTotalMinutes > closingMinutos)
+            throw new BusinessError('O agendamento deve ocorrer entre 08:00 e 19:00.');
     }
 
     private generateSuggestions(dailySchedules: Schedule[], requestedDate: Date, durationMinutes: number): string[] {

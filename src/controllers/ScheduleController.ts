@@ -27,7 +27,7 @@ export class ScheduleController {
             const serviceInput = {
                 brokerId: payload.corretorId,
                 propertyId: payload.imovelId,
-                startTime: new Date(payload.inicio),
+                startTime: parsedDate,
                 durationMinutes: payload.duracaoMinutos
             };
 
@@ -86,7 +86,7 @@ export class ScheduleController {
 
             res.status(200).json(responseDTOs);
 
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Erro ao listar agendamentos!", error);
             res.status(500).json({ error: "Erro interno do servidor" });
         }
