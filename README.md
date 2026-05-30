@@ -21,6 +21,16 @@ A chave do mapa é o `corretorId` e o valor é um array de agendamentos daquele 
 - Node.js (v18+)
 - npm ou yarn
 
+### Clone o repositório
+```bash
+git clone https://github.com/SEU-USUARIO/AgendaVisitasAPI
+```
+
+### Acesse a pasta do projeto
+```bash
+cd AgendaVisitaAPI
+```
+
 ### Instalação
 ```bash
 # Instale as dependências
